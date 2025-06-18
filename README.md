@@ -103,16 +103,6 @@ console.log('javascript:' + encodeURIComponent(code));
 | Bookmarklet not working | Try refreshing the page and running again |
 | Modal not appearing | Check if popup blockers are preventing the overlay |
 
-## 🚀 GitHub Pages Deployment
-
-This project is automatically deployed to GitHub Pages. To deploy your own version:
-
-1. **Fork** this repository
-2. **Enable** GitHub Pages in repository settings
-3. **Set** source to "Deploy from a branch" 
-4. **Choose** "main" branch and "/ (root)" folder
-5. **Access** your site at `https://yourusername.github.io/linkedinapply/`
-
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
