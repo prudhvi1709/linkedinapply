@@ -4,7 +4,7 @@
 
 ## 🌐 Live Demo
 
-**Try it now:** [https://prudhvi.github.io/linkedinapply/](https://prudhvi.github.io/linkedinapply/)
+**Try it now:** [https://prudhvi1709.github.io/linkedinapply/](https://prudhvi1709.github.io/linkedinapply/)
 
 ## ⚠️ Important Disclaimer
 
@@ -22,7 +22,7 @@ This tool is for **educational purposes only**. Use at your own risk and ensure 
 ## 📋 Quick Start
 
 ### 1. Install the Bookmarklet
-- Visit [the live demo page](https://prudhvi.github.io/linkedinapply/)
+- Visit [the live demo page](https://prudhvi1709.github.io/linkedinapply/)
 - Drag the "LinkedIn Easy Apply Bot" button to your bookmarks bar
 - Or right-click and select "Add to Bookmarks"
 
@@ -48,7 +48,7 @@ The bookmarklet provides detailed visual feedback:
 ### Local Setup
 
 ```bash
-git clone https://github.com/yourusername/linkedinapply.git
+git clone https://github.com/prudhvi1709/linkedinapply.git
 cd linkedinapply
 ```
 
