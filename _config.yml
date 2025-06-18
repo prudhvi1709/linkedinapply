@@ -1,0 +1,26 @@
+title: LinkedIn Easy Apply Bookmarklet
+description: 🚀 A one-click bookmarklet to automate LinkedIn "Easy Apply" job applications with real-time progress tracking.
+baseurl: "/linkedinapply"
+url: "https://prudhvi.github.io"
+
+# GitHub Pages settings
+theme: minima
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+
+# SEO settings
+author: prudhvi
+social:
+  name: LinkedIn Easy Apply Bookmarklet
+  links:
+    - https://github.com/prudhvi/linkedinapply
+
+# Exclude files from processing
+exclude:
+  - README.md
+  - LICENSE
+  - .github/
+  - encoded-bookmarklet.txt
+  - bookmarklet.js
+  - linkedin-easy-apply.js
