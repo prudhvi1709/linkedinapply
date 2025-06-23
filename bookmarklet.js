@@ -6,8 +6,8 @@
     skippedCount: 0,
     errorCount: 0,
     totalJobs: 0,
-    filteredJobs: 0,
-    eligibleJobs: 0,
+    goodMatchCount: 0, // Added for good match jobs
+    eligibleJobs: 0, // Will now be good match AND easy apply
     isRunning: false,
     shouldStop: false
   };
@@ -52,13 +52,17 @@
               <div id="progress-bar" style="background: #0a66c2; height: 100%; width: 0%; transition: width 0.3s;"></div>
             </div>
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px; margin-bottom: 15px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 13px; margin-bottom: 15px;">
             <div style="background: #f8f9fa; padding: 8px; border-radius: 4px;">
               <div style="font-weight: bold; color: #6c757d;">Total Found</div>
               <div style="font-size: 16px; color: #495057;" id="total-count">0</div>
             </div>
+            <div style="background: #f0f5ff; padding: 8px; border-radius: 4px;">
+              <div style="font-weight: bold; color: #004ba0;">Good Matches</div>
+              <div style="font-size: 16px; color: #003b8e;" id="good-match-count">0</div>
+            </div>
             <div style="background: #e3f2fd; padding: 8px; border-radius: 4px;">
-              <div style="font-weight: bold; color: #1976d2;">Eligible</div>
+              <div style="font-weight: bold; color: #1976d2;">Eligible (Easy Apply)</div>
               <div style="font-size: 16px; color: #1565c0;" id="eligible-count">0</div>
             </div>
           </div>
@@ -110,6 +114,7 @@
       if (progressBar && progress !== null) progressBar.style.width = `${progress}%`;
       
       document.getElementById('total-count').textContent = state.totalJobs;
+      document.getElementById('good-match-count').textContent = state.goodMatchCount;
       document.getElementById('eligible-count').textContent = state.eligibleJobs;
       document.getElementById('applied-count').textContent = state.appliedCount;
       document.getElementById('skipped-count').textContent = state.skippedCount;
@@ -124,10 +129,11 @@
     showSummary() {
       const total = state.appliedCount + state.skippedCount + state.errorCount;
       alert(`🎉 LinkedIn Easy Apply Complete!\n\n` +
-            `📊 Jobs Found: ${state.totalJobs}\n` +
-            `✅ Eligible: ${state.eligibleJobs}\n` +
+            `📊 Total Jobs Found: ${state.totalJobs}\n` +
+            `🎯 Good Matches: ${state.goodMatchCount}\n` +
+            `✅ Eligible (Easy Apply): ${state.eligibleJobs}\n` +
             `📝 Applied: ${state.appliedCount}\n` +
-            `⏭️ Skipped: ${state.skippedCount}\n` +
+            `⏭️ Skipped (Good Matches): ${state.skippedCount}\n` +
             `❌ Errors: ${state.errorCount}\n` +
             `🔄 Total Processed: ${total}`);
     }
@@ -170,13 +176,34 @@
 
   const LinkedIn = {
     getJobCards() {
-      const cards = Array.from(document.querySelectorAll('[data-occludable-job-id]')).filter(card => {
+      // Get all cards that are currently rendered and visible
+      const allVisibleCards = Array.from(document.querySelectorAll('[data-occludable-job-id]')).filter(card => {
         const rect = card.getBoundingClientRect();
-        return rect.height > 0 && rect.width > 0;
+        return rect.height > 0 && rect.width > 0; // Check if the card is actually visible
+      });
+
+      state.totalJobs = allVisibleCards.length;
+
+      // Filter for "good match" jobs
+      const goodMatchKeywords = ['good match', 'great match', 'skills match', 'skill match', 'matching skills'];
+      const goodMatchCards = allVisibleCards.filter(card => {
+        const cardText = card.innerText.toLowerCase();
+        // Check for specific "insight" elements often used by LinkedIn
+        const insightElement = card.querySelector('.job-card-container__company-job-insight, .job-card-list__insight');
+        if (insightElement && insightElement.offsetParent !== null) { // Check if insightElement is visible
+             // Check if the insight text contains any of the keywords
+            const insightText = insightElement.innerText.toLowerCase();
+            if (goodMatchKeywords.some(keyword => insightText.includes(keyword))) {
+                return true;
+            }
+        }
+        // Fallback: check the whole card text for keywords (less precise)
+        return goodMatchKeywords.some(keyword => cardText.includes(keyword));
       });
       
-      state.totalJobs = cards.length;
-      return cards;
+      state.goodMatchCount = goodMatchCards.length;
+      console.log(`Found ${state.totalJobs} total jobs, ${state.goodMatchCount} are good matches.`);
+      return goodMatchCards;
     },
 
     async clickJobCard(jobCard) {
@@ -271,47 +298,65 @@
   };
 
   const Bot = {
-    async processJob(jobCard, index) {
+    // Added totalGoodMatchJobs for accurate progress calculation
+    async processJob(jobCard, currentIndex, totalGoodMatchJobs) {
       if (state.shouldStop) return;
 
-      const jobTitle = LinkedIn.getJobTitle();
-      const companyName = LinkedIn.getCompanyName();
+      // It's better to get title/company after clicking the card, as they might be in the detail view
+      // However, for UI updates before clicking, we might need a preview.
+      // For now, let's assume current behavior is fine, but this could be a refinement.
+
+      // Calculate progress based on the number of good match jobs being processed
+      const progressPercentage = (currentIndex / totalGoodMatchJobs) * 100;
       
-      UI.updateStatus(`🔍 Checking: ${jobTitle} at ${companyName}`, (index / state.totalJobs) * 100);
+      // Pre-fetch title/company from card for initial status if possible, though detail view is more reliable
+      const previewTitle = jobCard.querySelector('.job-card-list__title, .job-card-container__job-title') || {};
+      const previewCompany = jobCard.querySelector('.job-card-container__primary-description') || {};
+      UI.updateStatus(`🔍 Checking: ${previewTitle.innerText || 'Job'} at ${previewCompany.innerText || 'Company'}`, progressPercentage);
+
 
       try {
-        await LinkedIn.clickJobCard(jobCard);
+        await LinkedIn.clickJobCard(jobCard); // This might load the job details view
         
-        const hasEasyApply = await LinkedIn.hasEasyApply();
+        // Get definitive title and company after card is clicked and details are loaded
+        const jobTitle = LinkedIn.getJobTitle();
+        const companyName = LinkedIn.getCompanyName();
+        UI.updateStatus(`🔍 Checking: ${jobTitle} at ${companyName}`, progressPercentage);
+
+
+        const hasEasyApply = await LinkedIn.hasEasyApply(); // This also updates state.eligibleJobs if true
         
         if (!hasEasyApply) {
-          console.log(`⏭️ Skipped: ${jobTitle} at ${companyName} - No Easy Apply`);
+          console.log(`⏭️ Skipped (Not Easy Apply): ${jobTitle} at ${companyName}`);
           state.skippedCount++;
-          UI.updateStatus(`⏭️ Skipped: ${jobTitle} (No Easy Apply)`, (index / state.totalJobs) * 100);
+          UI.updateStatus(`⏭️ ${jobTitle} (Not Easy Apply)`, progressPercentage);
           return;
         }
 
-        UI.updateStatus(`📝 Applying: ${jobTitle} at ${companyName}`, (index / state.totalJobs) * 100);
+        UI.updateStatus(`📝 Applying: ${jobTitle} at ${companyName}`, progressPercentage);
         await LinkedIn.clickEasyApply();
         const success = await LinkedIn.submitApplication();
 
         if (success) {
           console.log(`✅ Applied: ${jobTitle} at ${companyName}`);
           state.appliedCount++;
-          UI.updateStatus(`✅ Applied: ${jobTitle}`, (index / state.totalJobs) * 100);
+          UI.updateStatus(`✅ Applied: ${jobTitle}`, progressPercentage);
         } else {
-          console.log(`⏭️ Skipped: ${jobTitle} at ${companyName} - Could not complete application`);
-          state.skippedCount++;
-          UI.updateStatus(`⏭️ Skipped: ${jobTitle} (Incomplete)`, (index / state.totalJobs) * 100);
+          console.log(`⏭️ Skipped (Incomplete): ${jobTitle} at ${companyName}`);
+          state.skippedCount++; // Application started but not completed
+          UI.updateStatus(`⏭️ ${jobTitle} (Incomplete)`, progressPercentage);
         }
 
       } catch (error) {
+        // Ensure jobTitle and companyName are defined for error message
+        const jobTitle = LinkedIn.getJobTitle() || (previewTitle.innerText || 'Unknown Job');
+        const companyName = LinkedIn.getCompanyName() || (previewCompany.innerText || 'Unknown Company');
         console.error(`❌ Error processing ${jobTitle} at ${companyName}:`, error.message);
         state.errorCount++;
-        UI.updateStatus(`❌ Error: ${jobTitle}`, (index / state.totalJobs) * 100);
+        UI.updateStatus(`❌ Error: ${jobTitle}`, progressPercentage);
       }
 
-      await Utils.sleep(2000);
+      await Utils.sleep(2000); // Cooldown
     },
 
     async run() {
@@ -332,6 +377,7 @@
       state.skippedCount = 0;
       state.errorCount = 0;
       state.totalJobs = 0;
+      state.goodMatchCount = 0;
       state.eligibleJobs = 0;
 
       const overlay = UI.createOverlay();
@@ -340,22 +386,28 @@
         UI.updateStatus('🔍 Finding job cards...', 0);
         await Utils.sleep(1000);
         
-        const jobCards = LinkedIn.getJobCards();
+        const jobCards = LinkedIn.getJobCards(); // This now returns only "good match" jobs
         
-        if (jobCards.length === 0) {
-          alert('❌ No job cards found. Make sure you are on a LinkedIn job search results page.');
+        if (state.totalJobs === 0) {
+          alert('❌ No job cards found on the page. Make sure you are on a LinkedIn job search results page.');
+          return;
+        }
+        if (jobCards.length === 0) { // This means no "good match" jobs were found
+          alert(`ℹ️ Found ${state.totalJobs} jobs, but none were identified as "Good Match". Check filter criteria or try another page.`);
           return;
         }
 
-        UI.updateStatus(`📊 Found ${jobCards.length} jobs. Starting analysis...`, 0);
+        UI.updateStatus(`🎯 Found ${state.goodMatchCount} good match jobs out of ${state.totalJobs}. Starting analysis...`, 0);
         await Utils.sleep(1000);
 
+        // The progress bar should be based on the number of good match jobs to process
         for (let i = 0; i < jobCards.length; i++) {
           if (state.shouldStop) {
             UI.updateStatus('⏹️ Stopped by user', 100);
             break;
           }
-          await Bot.processJob(jobCards[i], i + 1);
+          // Pass jobCards.length to processJob for progress calculation
+          await Bot.processJob(jobCards[i], i + 1, jobCards.length);
         }
 
         if (!state.shouldStop) {
